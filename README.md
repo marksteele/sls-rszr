@@ -53,7 +53,7 @@ Why three distributions?
 
 ## WARNING
 
-Use at your own risk. Also, this is something of a prototype and thus functionality is limited.
+Use at your own risk. Also, this is something of a prototype and thus functionality is limited. There is no error handling of any kind, and my JS coding skills are definitely sub-par.
 
 Apply due diligence when deploying and modify to taste.
 
@@ -143,7 +143,7 @@ In this case, it would be `zzzz9b88g1`.
     "ImagesCdnCname": "${stage}-${project}-images.control-alt-del.org",
     "ResizedCdnCname": "${stage}-${project}-rimages.control-alt-del.org",
     "ResizerCdnCname": "${stage}-${project}-reimage.control-alt-del.org",
-    "APIGatewayEntryPoint": "fdpz9b88g1.execute-api.${region}.amazonaws.com"
+    "APIGatewayEntryPoint": "zzzz9b88g1.execute-api.${region}.amazonaws.com"
 }
 ```
 

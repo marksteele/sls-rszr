@@ -1,653 +1,654 @@
 {
-  "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "The AWS CloudFormation template for this Serverless application's resources outside of Lambdas and Api Gateway",
-  "Resources": {
-    "S3BucketImageSources": {
-      "Type": "AWS::S3::Bucket",
-      "Properties": {
-        "AccessControl": "Private",
-        "BucketName": {
-          "Ref": "SourceBucketName"
-        }
-      },
-      "DeletionPolicy": "Retain"
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "The AWS CloudFormation template for this Serverless application's resources outside of Lambdas and Api Gateway",
+    "Resources": {
+	"S3BucketImageSources": {
+	    "Type": "AWS::S3::Bucket",
+	    "Properties": {
+		"AccessControl": "Private",
+		"BucketName": {
+		    "Ref": "SourceBucketName"
+		}
+	    },
+	    "DeletionPolicy": "Retain"
+	},
+	"S3SourcesBucketPolicy": {
+	    "DependsOn": "S3BucketImageSources",
+	    "Type": "AWS::S3::BucketPolicy",
+	    "Properties": {
+		"PolicyDocument": {
+		    "Id": "SourcesS3BucketPolicy",
+		    "Version": "2012-10-17",
+		    "Statement": [
+			{
+			    "Sid": "ReadWriteAccess",
+			    "Effect": "Allow",
+			    "Resource": {
+				"Fn::Join": [
+				    "",
+				    [
+					"arn:aws:s3:::",
+					{
+					    "Ref": "SourceBucketName"
+					},
+					"/*"
+				    ]
+				]
+			    },
+			    "Principal": {
+				"AWS": "*"
+			    },
+			    "Action": [
+				"s3:GetObject",
+				"s3:PutObject"
+			    ]
+			}
+		    ]
+		},
+		"Bucket": {
+		    "Ref": "SourceBucketName"
+		}
+	    }
+	},
+	"S3BucketResizedImages": {
+	    "Type": "AWS::S3::Bucket",
+	    "Properties": {
+		"BucketName": {
+		    "Ref": "DestinationBucketName"
+		},
+		"AccessControl": "PublicRead",
+		"WebsiteConfiguration": {
+		    "IndexDocument": "index.html",
+		    "RoutingRules": [
+			{
+			    "RedirectRule": {
+				"HostName": {
+				    "Ref": "CloudFrontResizerCNAME"
+				},
+				"Protocol": "https",
+				"HttpRedirectCode": "307",
+				"ReplaceKeyPrefixWith": "${stage}/resize/"
+			    },
+			    "RoutingRuleCondition": {
+				"HttpErrorCodeReturnedEquals": "404"
+			    }
+			}
+		    ]
+		}
+	    },
+	    "DeletionPolicy": "Retain"
+	},
+	"S3ResizedBucketPolicy": {
+	    "DependsOn": "S3BucketResizedImages",
+	    "Type": "AWS::S3::BucketPolicy",
+	    "Properties": {
+		"PolicyDocument": {
+		    "Id": "ResizedS3BucketPolicy",
+		    "Version": "2012-10-17",
+		    "Statement": [
+			{
+			    "Sid": "ReadWriteAccess",
+			    "Effect": "Allow",
+			    "Resource": {
+				"Fn::Join": [
+				    "",
+				    [
+					"arn:aws:s3:::",
+					{
+					    "Ref": "DestinationBucketName"
+					},
+					"/*"
+				    ]
+				]
+			    },
+			    "Principal": {
+				"AWS": "*"
+			    },
+			    "Action": [
+				"s3:GetObject",
+				"s3:PutObject"
+			    ]
+			}
+		    ]
+		},
+		"Bucket": {
+		    "Ref": "DestinationBucketName"
+		}
+	    }
+	},
+	"IamRoleLambda": {
+	    "Type": "AWS::IAM::Role",
+	    "Properties": {
+		"AssumeRolePolicyDocument": {
+		    "Version": "2012-10-17",
+		    "Statement": [
+			{
+			    "Effect": "Allow",
+			    "Principal": {
+				"Service": [
+				    "lambda.amazonaws.com"
+				]
+			    },
+			    "Action": [
+				"sts:AssumeRole"
+			    ]
+			}
+		    ]
+		},
+		"Path": "/"
+	    }
+	},
+	"ExecRolePolicies": {
+	    "Type": "AWS::IAM::Policy",
+	    "Properties": {
+		"PolicyName": "ExecRolePolicy",
+		"PolicyDocument": {
+		    "Version": "2012-10-17",
+		    "Statement": [
+			{
+			    "Action": [
+				"acm:*",
+				"cloudfront:List*",
+				"cloudfront:Get*",
+				"cloudfront:UpdateDistribution"
+			    ],
+			    "Resource": [
+				"*"
+			    ],
+			    "Effect": "Allow"
+			},
+			{
+			    "Action": [
+				"logs:*"
+			    ],
+			    "Resource": "arn:aws:logs:*:*:*",
+			    "Effect": "Allow"
+			}
+		    ]
+		},
+		"Roles": [
+		    {
+			"Ref": "ExecRole"
+		    }
+		]
+	    }
+	},
+	"ExecRole": {
+	    "Type": "AWS::IAM::Role",
+	    "Properties": {
+		"AssumeRolePolicyDocument": {
+		    "Version": "2012-10-17",
+		    "Statement": [
+			{
+			    "Action": [
+				"sts:AssumeRole"
+			    ],
+			    "Effect": "Allow",
+			    "Principal": {
+				"Service": [
+				    "lambda.amazonaws.com"
+				]
+			    }
+			}
+		    ]
+		}
+	    }
+	},
+	"AcmRegistrationFunction": {
+	    "DependsOn": "ExecRole",
+	    "Type": "AWS::Lambda::Function",
+	    "Properties": {
+		"Handler": "acm_handler.handler",
+		"MemorySize": 128,
+		"Runtime": "python2.7",
+		"Code": {
+		    "S3Bucket": "lambda-utility",
+		    "S3Key": "acm-functions.zip"
+		},
+		"Role": {
+		    "Fn::GetAtt": [
+			"ExecRole",
+			"Arn"
+		    ]
+		},
+		"Timeout": 300
+	    }
+	},
+	"AcmAssociationFunction": {
+	    "DependsOn": "ExecRole",
+	    "Type": "AWS::Lambda::Function",
+	    "Properties": {
+		"Handler": "cloudfront_associator.handler",
+		"MemorySize": 128,
+		"Runtime": "python2.7",
+		"Code": {
+		    "S3Bucket": "lambda-utility",
+		    "S3Key": "acm-functions.zip"
+		},
+		"Role": {
+		    "Fn::GetAtt": [
+			"ExecRole",
+			"Arn"
+		    ]
+		},
+		"Timeout": 90
+	    }
+	},
+	"AcmCertificate": {
+	    "DependsOn": "AcmRegistrationFunction",
+	    "Type": "Custom::AcmCertificateRequest",
+	    "Properties": {
+		"Domains": [
+		    {
+			"Ref": "CloudFrontImageCNAME"
+		    },
+		    {
+			"Ref": "CloudFrontResizedImageCNAME"
+		    },
+		    {
+			"Ref": "CloudFrontResizerCNAME"
+		    }
+		],
+		"ServiceToken": {
+		    "Fn::GetAtt": [
+			"AcmRegistrationFunction",
+			"Arn"
+		    ]
+		},
+		"Await": true
+	    }
+	},
+	"CloudFrontResized": {
+	    "DependsOn": "S3ResizedBucketPolicy",
+	    "Type": "AWS::CloudFront::Distribution",
+	    "Properties": {
+		"DistributionConfig": {
+		    "Origins": [
+			{
+			    "DomainName": {
+				"Ref": "DestinationBucketStaticURL"
+			    },
+			    "Id": {
+				"Ref": "DestinationBucketName"
+			    },
+			    "CustomOriginConfig": {
+				"HTTPPort": "80",
+				"HTTPSPort": "443",
+				"OriginProtocolPolicy": "http-only"
+			    }
+			}
+		    ],
+		    "Enabled": "true",
+		    "DefaultRootObject": "index.html",
+		    "Aliases": [
+			{
+			    "Ref": "CloudFrontImageCNAME"
+			}
+		    ],
+		    "DefaultCacheBehavior": {
+			"AllowedMethods": [
+			    "GET",
+			    "HEAD"
+			],
+			"TargetOriginId": {
+			    "Ref": "DestinationBucketName"
+			},
+			"ForwardedValues": {
+			    "QueryString": "false",
+			    "Cookies": {
+				"Forward": "none"
+			    }
+			},
+			"ViewerProtocolPolicy": "allow-all"
+		    },
+		    "PriceClass": "PriceClass_100",
+		    "Restrictions": {
+			"GeoRestriction": {
+			    "RestrictionType": "whitelist",
+			    "Locations": [
+				"US",
+				"CA"
+			    ]
+			}
+		    },
+		    "ViewerCertificate": {
+			"CloudFrontDefaultCertificate": "true"
+		    }
+		}
+	    }
+	},
+	"AcmCfResized": {
+	    "DependsOn": [
+		"AcmAssociationFunction",
+		"AcmCertificate",
+		"CloudFrontResized"
+	    ],
+	    "Type": "Custom::CloudFrontAcmAssociation",
+	    "Properties": {
+		"DistributionId": {
+		    "Ref": "CloudFrontResized"
+		},
+		"CertificateArn": {
+		    "Ref": "AcmCertificate"
+		},
+		"ServiceToken": {
+		    "Fn::GetAtt": [
+			"AcmAssociationFunction",
+			"Arn"
+		    ]
+		}
+	    }
+	},
+	"CloudFrontResizedPost": {
+	    "DependsOn": "S3ResizedBucketPolicy",
+	    "Type": "AWS::CloudFront::Distribution",
+	    "Properties": {
+		"DistributionConfig": {
+		    "Origins": [
+			{
+			    "DomainName": {
+				"Ref": "DestinationBucketStaticURL"
+			    },
+			    "Id": {
+				"Ref": "DestinationBucketName"
+			    },
+			    "CustomOriginConfig": {
+				"HTTPPort": "80",
+				"HTTPSPort": "443",
+				"OriginProtocolPolicy": "http-only"
+			    }
+			}
+		    ],
+		    "Enabled": "true",
+		    "DefaultRootObject": "index.html",
+		    "Aliases": [
+			{
+			    "Ref": "CloudFrontResizedImageCNAME"
+			}
+		    ],
+		    "DefaultCacheBehavior": {
+			"AllowedMethods": [
+			    "GET",
+			    "HEAD"
+			],
+			"TargetOriginId": {
+			    "Ref": "DestinationBucketName"
+			},
+			"ForwardedValues": {
+			    "QueryString": "false",
+			    "Cookies": {
+				"Forward": "none"
+			    }
+			},
+			"ViewerProtocolPolicy": "allow-all"
+		    },
+		    "PriceClass": "PriceClass_100",
+		    "Restrictions": {
+			"GeoRestriction": {
+			    "RestrictionType": "whitelist",
+			    "Locations": [
+				"US",
+				"CA"
+			    ]
+			}
+		    },
+		    "ViewerCertificate": {
+			"CloudFrontDefaultCertificate": "true"
+		    }
+		}
+	    }
+	},
+	"AcmCfResizedPost": {
+	    "DependsOn": [
+		"AcmAssociationFunction",
+		"AcmCertificate",
+		"CloudFrontResizedPost"
+	    ],
+	    "Type": "Custom::CloudFrontAcmAssociation",
+	    "Properties": {
+		"DistributionId": {
+		    "Ref": "CloudFrontResizedPost"
+		},
+		"CertificateArn": {
+		    "Ref": "AcmCertificate"
+		},
+		"ServiceToken": {
+		    "Fn::GetAtt": [
+			"AcmAssociationFunction",
+			"Arn"
+		    ]
+		}
+	    }
+	},
+	"CloudFrontResizer": {
+	    "DependsOn": [
+		"S3ResizedBucketPolicy",
+		"S3SourcesBucketPolicy"
+	    ],
+	    "Type": "AWS::CloudFront::Distribution",
+	    "Properties": {
+		"DistributionConfig": {
+		    "Origins": [
+			{
+			    "DomainName": {
+				"Ref": "APIGatewayEndpoint"
+			    },
+			    "Id": {
+				"Ref": "DestinationBucketName"
+			    },
+			    "CustomOriginConfig": {
+				"HTTPSPort": "443",
+				"OriginProtocolPolicy": "https-only"
+			    }
+			}
+		    ],
+		    "Enabled": "true",
+		    "DefaultRootObject": "index.html",
+		    "Aliases": [
+			{
+			    "Ref": "CloudFrontResizerCNAME"
+			}
+		    ],
+		    "DefaultCacheBehavior": {
+			"AllowedMethods": [
+			    "GET",
+			    "HEAD"
+			],
+			"TargetOriginId": {
+			    "Ref": "DestinationBucketName"
+			},
+			"ForwardedValues": {
+			    "QueryString": "false",
+			    "Cookies": {
+				"Forward": "none"
+			    }
+			},
+			"ViewerProtocolPolicy": "allow-all"
+		    },
+		    "PriceClass": "PriceClass_100",
+		    "Restrictions": {
+			"GeoRestriction": {
+			    "RestrictionType": "whitelist",
+			    "Locations": [
+				"US",
+				"CA"
+			    ]
+			}
+		    },
+		    "ViewerCertificate": {
+			"CloudFrontDefaultCertificate": "true"
+		    }
+		}
+	    }
+	},
+	"AcmCfResizer": {
+	    "DependsOn": [
+		"AcmAssociationFunction",
+		"AcmCertificate",
+		"CloudFrontResizer"
+	    ],
+	    "Type": "Custom::CloudFrontAcmAssociation",
+	    "Properties": {
+		"DistributionId": {
+		    "Ref": "CloudFrontResizer"
+		},
+		"CertificateArn": {
+		    "Ref": "AcmCertificate"
+		},
+		"ServiceToken": {
+		    "Fn::GetAtt": [
+			"AcmAssociationFunction",
+			"Arn"
+		    ]
+		}
+	    }
+	},
+	"IamPolicyLambda": {
+	    "DependsOn": [
+		"S3BucketImageSources",
+		"S3BucketResizedImages"
+	    ],
+	    "Type": "AWS::IAM::Policy",
+	    "Properties": {
+		"PolicyName": "${stage}-${project}-lambda",
+		"PolicyDocument": {
+		    "Version": "2012-10-17",
+		    "Statement": [
+			{
+			    "Effect": "Allow",
+			    "Action": [
+				"logs:CreateLogGroup",
+				"logs:CreateLogStream",
+				"logs:PutLogEvents"
+			    ],
+			    "Resource": "arn:aws:logs:${region}:*:*"
+			},
+			{
+			    "Effect": "Allow",
+			    "Action": [
+				"s3:ListBucket"
+			    ],
+			    "Resource": {
+				"Fn::Join": [
+				    "",
+				    [
+					"arn:aws:s3:::",
+					{
+					    "Ref": "SourceBucketName"
+					}
+				    ]
+				]
+			    }
+			},
+			{
+			    "Effect": "Allow",
+			    "Action": [
+				"s3:GetObject"
+			    ],
+			    "Resource": {
+				"Fn::Join": [
+				    "",
+				    [
+					"arn:aws:s3:::",
+					{
+					    "Ref": "SourceBucketName"
+					},
+					"/*"
+				    ]
+				]
+			    }
+			},
+			{
+			    "Effect": "Allow",
+			    "Action": [
+				"s3:ListBucket"
+			    ],
+			    "Resource": {
+				"Fn::Join": [
+				    "",
+				    [
+					"arn:aws:s3:::",
+					{
+					    "Ref": "DestinationBucketName"
+					}
+				    ]
+				]
+			    }
+			},
+			{
+			    "Effect": "Allow",
+			    "Action": [
+				"s3:PutObject"
+			    ],
+			    "Resource": {
+				"Fn::Join": [
+				    "",
+				    [
+					"arn:aws:s3:::",
+					{
+					    "Ref": "DestinationBucketName"
+					},
+					"/*"
+				    ]
+				]
+			    }
+			}
+		    ]
+		},
+		"Roles": [
+		    {
+			"Ref": "IamRoleLambda"
+		    }
+		]
+	    }
+	}
     },
-    "S3SourcesBucketPolicy": {
-      "DependsOn": "S3BucketImageSources",
-      "Type": "AWS::S3::BucketPolicy",
-      "Properties": {
-        "PolicyDocument": {
-          "Id": "SourcesS3BucketPolicy",
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Sid": "ReadWriteAccess",
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "SourceBucketName"
-                    },
-                    "/*"
-                  ]
-                ]
-              },
-              "Principal": {
-                "AWS": "*"
-              },
-              "Action": [
-                "s3:GetObject",
-                "s3:PutObject"
-              ]
-            }
-          ]
-        },
-        "Bucket": {
-          "Ref": "SourceBucketName"
-        }
-      }
+    "Outputs": {
+	"IamRoleArnLambda": {
+	    "Description": "ARN of the lambda IAM role",
+	    "Value": {
+		"Fn::GetAtt": [
+		    "IamRoleLambda",
+		    "Arn"
+		]
+	    }
+	}
     },
-    "S3BucketResizedImages": {
-      "Type": "AWS::S3::Bucket",
-      "Properties": {
-        "BucketName": {
-          "Ref": "DestinationBucketName"
-        },
-        "AccessControl": "PublicRead",
-        "WebsiteConfiguration": {
-          "IndexDocument": "index.html",
-          "RoutingRules": [
-            {
-              "RedirectRule": {
-                "HostName": {
-                  "Ref": "CloudFrontResizerCNAME"
-                },
-                "Protocol": "https",
-                "HttpRedirectCode": "307",
-                "ReplaceKeyPrefixWith": "${stage}/resize/"
-              },
-              "RoutingRuleCondition": {
-                "HttpErrorCodeReturnedEquals": "404"
-              }
-            }
-          ]
-        }
-      },
-      "DeletionPolicy": "Retain"
+    "Metadata": {
+	"Comments": [
+	    "This file should not require any editing.",
+	    "Change APIGatewayEndpoint to reflect the correct api host AFTER the api is deployed. Chicken and egg... This is declared via the other serverless bits. Defined s-templates.json",
+	    "Create DNS entries for the appropriate stage/regions which point to cloudfront endpoints. Defined in s-templates.json. This could be moved to Route53 if DNS managed by AWS and cloudfront."
+	]
     },
-    "S3ResizedBucketPolicy": {
-      "DependsOn": "S3BucketResizedImages",
-      "Type": "AWS::S3::BucketPolicy",
-      "Properties": {
-        "PolicyDocument": {
-          "Id": "ResizedS3BucketPolicy",
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Sid": "ReadWriteAccess",
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "DestinationBucketName"
-                    },
-                    "/*"
-                  ]
-                ]
-              },
-              "Principal": {
-                "AWS": "*"
-              },
-              "Action": [
-                "s3:GetObject",
-                "s3:PutObject"
-              ]
-            }
-          ]
-        },
-        "Bucket": {
-          "Ref": "DestinationBucketName"
-        }
-      }
-    },
-    "IamRoleLambda": {
-      "Type": "AWS::IAM::Role",
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": {
-                "Service": [
-                  "lambda.amazonaws.com"
-                ]
-              },
-              "Action": [
-                "sts:AssumeRole"
-              ]
-            }
-          ]
-        },
-        "Path": "/"
-      }
-    },
-    "ExecRolePolicies": {
-      "Type": "AWS::IAM::Policy",
-      "Properties": {
-        "PolicyName": "ExecRolePolicy",
-        "PolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Action": [
-                "acm:*",
-                "cloudfront:List*",
-                "cloudfront:Get*",
-                "cloudfront:UpdateDistribution"
-              ],
-              "Resource": [
-                "*"
-              ],
-              "Effect": "Allow"
-            },
-            {
-              "Action": [
-                "logs:*"
-              ],
-              "Resource": "arn:aws:logs:*:*:*",
-              "Effect": "Allow"
-            }
-          ]
-        },
-        "Roles": [
-          {
-            "Ref": "ExecRole"
-          }
-        ]
-      }
-    },
-    "ExecRole": {
-      "Type": "AWS::IAM::Role",
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Action": [
-                "sts:AssumeRole"
-              ],
-              "Effect": "Allow",
-              "Principal": {
-                "Service": [
-                  "lambda.amazonaws.com"
-                ]
-              }
-            }
-          ]
-        }
-      }
-    },
-    "AcmRegistrationFunction": {
-      "DependsOn": "ExecRole",
-      "Type": "AWS::Lambda::Function",
-      "Properties": {
-        "Handler": "acm_handler.handler",
-        "MemorySize": 128,
-        "Runtime": "python2.7",
-        "Code": {
-          "S3Bucket": "lambda-utility",
-          "S3Key": "acm-functions.zip"
-        },
-        "Role": {
-          "Fn::GetAtt": [
-            "ExecRole",
-            "Arn"
-          ]
-        },
-        "Timeout": 300
-      }
-    },
-    "AcmAssociationFunction": {
-      "DependsOn": "ExecRole",
-      "Type": "AWS::Lambda::Function",
-      "Properties": {
-        "Handler": "cloudfront_associator.handler",
-        "MemorySize": 128,
-        "Runtime": "python2.7",
-        "Code": {
-          "S3Bucket": "lambda-utility",
-          "S3Key": "acm-functions.zip"
-        },
-        "Role": {
-          "Fn::GetAtt": [
-            "ExecRole",
-            "Arn"
-          ]
-        },
-        "Timeout": 90
-      }
-    },
-    "AcmCertificate": {
-      "DependsOn": "AcmRegistrationFunction",
-      "Type": "Custom::AcmCertificateRequest",
-      "Properties": {
-        "Domains": [
-          {
-            "Ref": "CloudFrontImageCNAME"
-          },
-          {
-            "Ref": "CloudFrontResizedImageCNAME"
-          },
-          {
-            "Ref": "CloudFrontResizerCNAME"
-          }
-        ],
-        "ServiceToken": {
-          "Fn::GetAtt": [
-            "AcmRegistrationFunction",
-            "Arn"
-          ]
-        }
-      }
-    },
-    "CloudFrontResized": {
-      "DependsOn": "S3ResizedBucketPolicy",
-      "Type": "AWS::CloudFront::Distribution",
-      "Properties": {
-        "DistributionConfig": {
-          "Origins": [
-            {
-              "DomainName": {
-                "Ref": "DestinationBucketStaticURL"
-              },
-              "Id": {
-                "Ref": "DestinationBucketName"
-              },
-              "CustomOriginConfig": {
-                "HTTPPort": "80",
-                "HTTPSPort": "443",
-                "OriginProtocolPolicy": "http-only"
-              }
-            }
-          ],
-          "Enabled": "true",
-          "DefaultRootObject": "index.html",
-          "Aliases": [
-            {
-              "Ref": "CloudFrontImageCNAME"
-            }
-          ],
-          "DefaultCacheBehavior": {
-            "AllowedMethods": [
-              "GET",
-              "HEAD"
-            ],
-            "TargetOriginId": {
-              "Ref": "DestinationBucketName"
-            },
-            "ForwardedValues": {
-              "QueryString": "false",
-              "Cookies": {
-                "Forward": "none"
-              }
-            },
-            "ViewerProtocolPolicy": "allow-all"
-          },
-          "PriceClass": "PriceClass_100",
-          "Restrictions": {
-            "GeoRestriction": {
-              "RestrictionType": "whitelist",
-              "Locations": [
-                "US",
-                "CA"
-              ]
-            }
-          },
-          "ViewerCertificate": {
-            "CloudFrontDefaultCertificate": "true"
-          }
-        }
-      }
-    },
-    "AcmCfResized": {
-      "DependsOn": [
-        "AcmAssociationFunction",
-        "AcmCertificate",
-        "CloudFrontResized"
-      ],
-      "Type": "Custom::CloudFrontAcmAssociation",
-      "Properties": {
-        "DistributionId": {
-          "Ref": "CloudFrontResized"
-        },
-        "CertificateArn": {
-          "Ref": "AcmCertificate"
-        },
-        "ServiceToken": {
-          "Fn::GetAtt": [
-            "AcmAssociationFunction",
-            "Arn"
-          ]
-        }
-      }
-    },
-    "CloudFrontResizedPost": {
-      "DependsOn": "S3ResizedBucketPolicy",
-      "Type": "AWS::CloudFront::Distribution",
-      "Properties": {
-        "DistributionConfig": {
-          "Origins": [
-            {
-              "DomainName": {
-                "Ref": "DestinationBucketStaticURL"
-              },
-              "Id": {
-                "Ref": "DestinationBucketName"
-              },
-              "CustomOriginConfig": {
-                "HTTPPort": "80",
-                "HTTPSPort": "443",
-                "OriginProtocolPolicy": "http-only"
-              }
-            }
-          ],
-          "Enabled": "true",
-          "DefaultRootObject": "index.html",
-          "Aliases": [
-            {
-              "Ref": "CloudFrontResizedImageCNAME"
-            }
-          ],
-          "DefaultCacheBehavior": {
-            "AllowedMethods": [
-              "GET",
-              "HEAD"
-            ],
-            "TargetOriginId": {
-              "Ref": "DestinationBucketName"
-            },
-            "ForwardedValues": {
-              "QueryString": "false",
-              "Cookies": {
-                "Forward": "none"
-              }
-            },
-            "ViewerProtocolPolicy": "allow-all"
-          },
-          "PriceClass": "PriceClass_100",
-          "Restrictions": {
-            "GeoRestriction": {
-              "RestrictionType": "whitelist",
-              "Locations": [
-                "US",
-                "CA"
-              ]
-            }
-          },
-          "ViewerCertificate": {
-            "CloudFrontDefaultCertificate": "true"
-          }
-        }
-      }
-    },
-    "AcmCfResizedPost": {
-      "DependsOn": [
-        "AcmAssociationFunction",
-        "AcmCertificate",
-        "CloudFrontResizedPost"
-      ],
-      "Type": "Custom::CloudFrontAcmAssociation",
-      "Properties": {
-        "DistributionId": {
-          "Ref": "CloudFrontResizedPost"
-        },
-        "CertificateArn": {
-          "Ref": "AcmCertificate"
-        },
-        "ServiceToken": {
-          "Fn::GetAtt": [
-            "AcmAssociationFunction",
-            "Arn"
-          ]
-        }
-      }
-    },
-    "CloudFrontResizer": {
-      "DependsOn": [
-        "S3ResizedBucketPolicy",
-        "S3SourcesBucketPolicy"
-      ],
-      "Type": "AWS::CloudFront::Distribution",
-      "Properties": {
-        "DistributionConfig": {
-          "Origins": [
-            {
-              "DomainName": {
-                "Ref": "APIGatewayEndpoint"
-              },
-              "Id": {
-                "Ref": "DestinationBucketName"
-              },
-              "CustomOriginConfig": {
-                "HTTPSPort": "443",
-                "OriginProtocolPolicy": "https-only"
-              }
-            }
-          ],
-          "Enabled": "true",
-          "DefaultRootObject": "index.html",
-          "Aliases": [
-            {
-              "Ref": "CloudFrontResizerCNAME"
-            }
-          ],
-          "DefaultCacheBehavior": {
-            "AllowedMethods": [
-              "GET",
-              "HEAD"
-            ],
-            "TargetOriginId": {
-              "Ref": "DestinationBucketName"
-            },
-            "ForwardedValues": {
-              "QueryString": "false",
-              "Cookies": {
-                "Forward": "none"
-              }
-            },
-            "ViewerProtocolPolicy": "allow-all"
-          },
-          "PriceClass": "PriceClass_100",
-          "Restrictions": {
-            "GeoRestriction": {
-              "RestrictionType": "whitelist",
-              "Locations": [
-                "US",
-                "CA"
-              ]
-            }
-          },
-          "ViewerCertificate": {
-            "CloudFrontDefaultCertificate": "true"
-          }
-        }
-      }
-    },
-    "AcmCfResizer": {
-      "DependsOn": [
-        "AcmAssociationFunction",
-        "AcmCertificate",
-        "CloudFrontResizer"
-      ],
-      "Type": "Custom::CloudFrontAcmAssociation",
-      "Properties": {
-        "DistributionId": {
-          "Ref": "CloudFrontResizer"
-        },
-        "CertificateArn": {
-          "Ref": "AcmCertificate"
-        },
-        "ServiceToken": {
-          "Fn::GetAtt": [
-            "AcmAssociationFunction",
-            "Arn"
-          ]
-        }
-      }
-    },
-    "IamPolicyLambda": {
-      "DependsOn": [
-        "S3BucketImageSources",
-        "S3BucketResizedImages"
-      ],
-      "Type": "AWS::IAM::Policy",
-      "Properties": {
-        "PolicyName": "${stage}-${project}-lambda",
-        "PolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-              ],
-              "Resource": "arn:aws:logs:${region}:*:*"
-            },
-            {
-              "Effect": "Allow",
-              "Action": [
-                "s3:ListBucket"
-              ],
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "SourceBucketName"
-                    }
-                  ]
-                ]
-              }
-            },
-            {
-              "Effect": "Allow",
-              "Action": [
-                "s3:GetObject"
-              ],
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "SourceBucketName"
-                    },
-                    "/*"
-                  ]
-                ]
-              }
-            },
-            {
-              "Effect": "Allow",
-              "Action": [
-                "s3:ListBucket"
-              ],
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "DestinationBucketName"
-                    }
-                  ]
-                ]
-              }
-            },
-            {
-              "Effect": "Allow",
-              "Action": [
-                "s3:PutObject"
-              ],
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "DestinationBucketName"
-                    },
-                    "/*"
-                  ]
-                ]
-              }
-            }
-          ]
-        },
-        "Roles": [
-          {
-            "Ref": "IamRoleLambda"
-          }
-        ]
-      }
+    "Parameters": {
+	"SourceBucketName": {
+	    "Type": "String",
+	    "Default": "$${SourceBucket}"
+	},
+	"DestinationBucketName": {
+	    "Type": "String",
+	    "Default": "$${DestinationBucket}"
+	},
+	"DestinationBucketStaticURL": {
+	    "Type": "String",
+	    "Default": "$${DestinationStaticUrl}"
+	},
+	"CloudFrontImageCNAME": {
+	    "Type": "String",
+	    "Default": "$${ImagesCdnCname}"
+	},
+	"CloudFrontResizedImageCNAME": {
+	    "Type": "String",
+	    "Default": "$${ResizedCdnCname}"
+	},
+	"CloudFrontResizerCNAME": {
+	    "Type": "String",
+	    "Default": "$${ResizerCdnCname}"
+	},
+	"APIGatewayEndpoint": {
+	    "Type": "String",
+	    "Default": "$${APIGatewayEntryPoint}"
+	}
     }
-  },
-  "Outputs": {
-    "IamRoleArnLambda": {
-      "Description": "ARN of the lambda IAM role",
-      "Value": {
-        "Fn::GetAtt": [
-          "IamRoleLambda",
-          "Arn"
-        ]
-      }
-    }
-  },
-  "Metadata": {
-    "Comments": [
-      "This file should not require any editing.",
-      "Change APIGatewayEndpoint to reflect the correct api host AFTER the api is deployed. Chicken and egg... This is declared via the other serverless bits. Defined s-templates.json",
-      "Create DNS entries for the appropriate stage/regions which point to cloudfront endpoints. Defined in s-templates.json. This could be moved to Route53 if DNS managed by AWS and cloudfront."
-    ]
-  },
-  "Parameters": {
-    "SourceBucketName": {
-      "Type": "String",
-      "Default": "$${SourceBucket}"
-    },
-    "DestinationBucketName": {
-      "Type": "String",
-      "Default": "$${DestinationBucket}"
-    },
-    "DestinationBucketStaticURL": {
-      "Type": "String",
-      "Default": "$${DestinationStaticUrl}"
-    },
-    "CloudFrontImageCNAME": {
-      "Type": "String",
-      "Default": "$${ImagesCdnCname}"
-    },
-    "CloudFrontResizedImageCNAME": {
-      "Type": "String",
-      "Default": "$${ResizedCdnCname}"
-    },
-    "CloudFrontResizerCNAME": {
-      "Type": "String",
-      "Default": "$${ResizerCdnCname}"
-    },
-    "APIGatewayEndpoint": {
-      "Type": "String",
-      "Default": "$${APIGatewayEntryPoint}"
-    }
-  }
 }
