@@ -38,11 +38,14 @@ To accomplish this, we'll provision three separate CloudFront CDN distribution p
 
 Why three distributions?
 
-* The first time an image is requested, DistributionA will return an HTTP 307 (caching the response for about an hour) to DistributionB.
-* The first time DistributionB receives a request, it'll forward the request to API Gateway and cache the returned 307 response pointing to DistributionC.
+* The first time an image is requested, DistributionA will return an HTTP 307 (caching the response for about an hour) redirecting to DistributionB.
+* The first time DistributionB receives a request, it'll forward the request to API Gateway+Lambda and cache the returned 307 response redirecting to DistributionC.
 * By the time the request reaches DistributionC, the image has been created by the Lambda function and is available in S3 so it'll return the image and cache it.
 * Subsequent requests to DistributionA will serve cached redirects (as will DistributionB), saving calls to API Gateway eventually redirecting to DistributionC.
+* DistributionC will always serve out of cache
 * Once the cached responses expire on DistributionA, images will be served directly without any redirects.
+
+Why not have API Gateway/Lambda return the created image? We can't. This makes me sad. API Gateway can only return text responses. I've tried every trick I could come up with to fool it, yet it returns some encoded version of the binary content and it just doesn't work. If at some point in the future API Gateway support binary responses, this could be simplified a bit by removing one of the CDN endpoints.
 
 ## Features
 
