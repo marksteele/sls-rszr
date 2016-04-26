@@ -1,43 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "The AWS CloudFormation template for this Serverless application's resources outside of Lambdas and Api Gateway",
-    "Metadata": {
-	"Comments": [
-	    "This file should not require any editing.",
-	    "Change APIGatewayEndpoint to reflect the correct api host AFTER the api is deployed. Chicken and egg... This is declared via the other serverless bits. Defined s-templates.json",
-	    "Create DNS entries for the appropriate stage/regions which point to cloudfront endpoints. Defined in s-templates.json. This could be moved to Route53 if DNS managed by AWS and cloudfront."
-	]
-    },
-    "Parameters": {
-	"SourceBucketName": {
-	    "Type": "String",
-	    "Default": "$${SourceBucket}"
-	},
-	"DestinationBucketName": {
-	    "Type": "String",
-	    "Default": "$${DestinationBucket}"
-	},
-	"DestinationBucketStaticURL" : {
-	    "Type": "String",
-            "Default": "$${DestinationStaticUrl}"
-	},
-	"CloudFrontImageCNAME": {
-	    "Type": "String",
-	    "Default": "$${ImagesCdnCname}"
-	},
-	"CloudFrontResizedImageCNAME": {
-	    "Type": "String",
-	    "Default": "$${ResizedCdnCname}"
-	},
-	"CloudFrontResizerCNAME": {
-	    "Type": "String",
-	    "Default": "$${ResizerCdnCname}"
-	},
-	"APIGatewayEndpoint": {
-	    "Type": "String",
-	    "Default": "$${APIGatewayEntryPoint}"
-	}
-    },
     "Resources": {
 	"S3BucketImageSources": {
 	    "Type": "AWS::S3::Bucket",
@@ -50,7 +13,7 @@
 	    "DeletionPolicy": "Retain"
 	},
 	"S3SourcesBucketPolicy": {
-	    "DependsOn" : "S3BucketImageSources",
+	    "DependsOn": "S3BucketImageSources",
 	    "Type": "AWS::S3::BucketPolicy",
 	    "Properties": {
 		"PolicyDocument": {
@@ -116,7 +79,7 @@
 	    "DeletionPolicy": "Retain"
 	},
 	"S3ResizedBucketPolicy": {
-	    "DependsOn" : "S3BucketResizedImages",
+	    "DependsOn": "S3BucketResizedImages",
 	    "Type": "AWS::S3::BucketPolicy",
 	    "Properties": {
 		"PolicyDocument": {
@@ -189,17 +152,25 @@
 				"cloudfront:Get*",
 				"cloudfront:UpdateDistribution"
 			    ],
-			    "Resource": [ "*" ],
+			    "Resource": [
+				"*"
+			    ],
 			    "Effect": "Allow"
 			},
 			{
-			    "Action": [ "logs:*" ],
+			    "Action": [
+				"logs:*"
+			    ],
 			    "Resource": "arn:aws:logs:*:*:*",
 			    "Effect": "Allow"
 			}
 		    ]
 		},
-		"Roles": [{"Ref": "ExecRole"}]
+		"Roles": [
+		    {
+			"Ref": "ExecRole"
+		    }
+		]
 	    }
 	},
 	"ExecRole": {
@@ -209,9 +180,15 @@
 		    "Version": "2012-10-17",
 		    "Statement": [
 			{
-			    "Action": ["sts:AssumeRole"],
+			    "Action": [
+				"sts:AssumeRole"
+			    ],
 			    "Effect": "Allow",
-			    "Principal": {"Service": ["lambda.amazonaws.com"]}
+			    "Principal": {
+				"Service": [
+				    "lambda.amazonaws.com"
+				]
+			    }
 			}
 		    ]
 		}
@@ -228,7 +205,12 @@
 		    "S3Bucket": "lambda-utility",
 		    "S3Key": "acm-functions.zip"
 		},
-		"Role": {"Fn::GetAtt": ["ExecRole", "Arn"]},
+		"Role": {
+		    "Fn::GetAtt": [
+			"ExecRole",
+			"Arn"
+		    ]
+		},
 		"Timeout": 300
 	    }
 	},
@@ -253,16 +235,22 @@
 	    }
 	},
 	"AcmCertificate": {
+	    "DependsOn": "AcmRegistrationFunction",
 	    "Type": "Custom::AcmCertificateRequest",
 	    "Properties": {
 		"Domains": [
-		    {"Ref" : "CloudFrontImageCNAME"},
- 		    {"Ref" : "CloudFrontResizedImageCNAME"},
-		    {"Ref" : "CloudFrontResizerCNAME"}
+		    {
+			"Ref": "CloudFrontImageCNAME"
+		    },
+		    {
+			"Ref": "CloudFrontResizedImageCNAME"
+		    },
+		    {
+			"Ref": "CloudFrontResizerCNAME"
+		    }
 		]
 	    },
-	    "Await": true,
-	    "ServiceToken" : {
+	    "ServiceToken": {
 		"Fn::GetAtt": [
 		    "AcmRegistrationFunction",
 		    "Arn"
@@ -276,8 +264,12 @@
 		"DistributionConfig": {
 		    "Origins": [
 			{
-			    "DomainName": {"Ref" : "DestinationBucketStaticURL"},
-			    "Id": {"Ref": "DestinationBucketName"},
+			    "DomainName": {
+				"Ref": "DestinationBucketStaticURL"
+			    },
+			    "Id": {
+				"Ref": "DestinationBucketName"
+			    },
 			    "CustomOriginConfig": {
 				"HTTPPort": "80",
 				"HTTPSPort": "443",
@@ -325,7 +317,11 @@
 	    }
 	},
 	"SSL_CF_Resized": {
-	    "DependsOn": ["AcmCertificate","CloudFrontResized"],
+	    "DependsOn": [
+		"AcmAssociationFunction",
+		"AcmCertificate",
+		"CloudFrontResized"
+	    ],
 	    "Type": "Custom::CloudFrontAcmAssociation",
 	    "Properties": {
 		"DistributionId": {
@@ -349,8 +345,12 @@
 		"DistributionConfig": {
 		    "Origins": [
 			{
-			    "DomainName": {"Ref" : "DestinationBucketStaticURL"},
-			    "Id": {"Ref": "DestinationBucketName"},
+			    "DomainName": {
+				"Ref": "DestinationBucketStaticURL"
+			    },
+			    "Id": {
+				"Ref": "DestinationBucketName"
+			    },
 			    "CustomOriginConfig": {
 				"HTTPPort": "80",
 				"HTTPSPort": "443",
@@ -398,7 +398,11 @@
 	    }
 	},
 	"SSL_CF_ResizedPost": {
-	    "DependsOn": ["AcmCertificate","CloudFrontResizedPost"],
+	    "DependsOn": [
+		"AcmAssociationFunction",
+		"AcmCertificate",
+		"CloudFrontResizedPost"
+	    ],
 	    "Type": "Custom::CloudFrontAcmAssociation",
 	    "Properties": {
 		"DistributionId": {
@@ -416,7 +420,10 @@
 	    }
 	},
 	"CloudFrontResizer": {
-	    "DependsOn": ["S3ResizedBucketPolicy", "S3SourcesBucketPolicy"],
+	    "DependsOn": [
+		"S3ResizedBucketPolicy",
+		"S3SourcesBucketPolicy"
+	    ],
 	    "Type": "AWS::CloudFront::Distribution",
 	    "Properties": {
 		"DistributionConfig": {
@@ -474,7 +481,11 @@
 	    }
 	},
 	"SSL_CF_Resizer": {
-	    "DependsOn": ["AcmCertificate","CloudFrontResizer"],
+	    "DependsOn": [
+		"AcmAssociationFunction",
+		"AcmCertificate",
+		"CloudFrontResizer"
+	    ],
 	    "Type": "Custom::CloudFrontAcmAssociation",
 	    "Properties": {
 		"DistributionId": {
@@ -492,10 +503,13 @@
 	    }
 	},
 	"IamPolicyLambda": {
-	    "DependsOn": ["S3BucketImageSources","S3BucketResizedImages"],
+	    "DependsOn": [
+		"S3BucketImageSources",
+		"S3BucketResizedImages"
+	    ],
 	    "Type": "AWS::IAM::Policy",
 	    "Properties": {
-		"PolicyName": "${stage}-${name}-lambda",
+		"PolicyName": "${stage}-${project}-lambda",
 		"PolicyDocument": {
 		    "Version": "2012-10-17",
 		    "Statement": [
@@ -597,6 +611,43 @@
 		    "Arn"
 		]
 	    }
+	}
+    },
+    "Metadata": {
+	"Comments": [
+	    "This file should not require any editing.",
+	    "Change APIGatewayEndpoint to reflect the correct api host AFTER the api is deployed. Chicken and egg... This is declared via the other serverless bits. Defined s-templates.json",
+	    "Create DNS entries for the appropriate stage/regions which point to cloudfront endpoints. Defined in s-templates.json. This could be moved to Route53 if DNS managed by AWS and cloudfront."
+	]
+    },
+    "Parameters": {
+	"SourceBucketName": {
+	    "Type": "String",
+	    "Default": "$${SourceBucket}"
+	},
+	"DestinationBucketName": {
+	    "Type": "String",
+	    "Default": "$${DestinationBucket}"
+	},
+	"DestinationBucketStaticURL": {
+	    "Type": "String",
+	    "Default": "$${DestinationStaticUrl}"
+	},
+	"CloudFrontImageCNAME": {
+	    "Type": "String",
+	    "Default": "$${ImagesCdnCname}"
+	},
+	"CloudFrontResizedImageCNAME": {
+	    "Type": "String",
+	    "Default": "$${ResizedCdnCname}"
+	},
+	"CloudFrontResizerCNAME": {
+	    "Type": "String",
+	    "Default": "$${ResizerCdnCname}"
+	},
+	"APIGatewayEndpoint": {
+	    "Type": "String",
+	    "Default": "$${APIGatewayEntryPoint}"
 	}
     }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "sls-rszr",
+  "name": "rsz",
   "custom": {},
   "plugins": [
     "serverless-optimizer-plugin"

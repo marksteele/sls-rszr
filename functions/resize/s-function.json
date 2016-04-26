@@ -38,7 +38,7 @@
     "SERVERLESS_PROJECT": "${project}",
     "SERVERLESS_STAGE": "${stage}",
     "SERVERLESS_REGION": "${region}",
-    "RESIZED_CLOUDFRONT": "${stage}-${project}-$${ResizedCdnCname}"
+    "RESIZED_CLOUDFRONT": "$${ResizedCdnCname}"
   },
   "vpc": {
     "securityGroupIds": [],

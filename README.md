@@ -4,13 +4,13 @@ Edit the values to suit your needs
 
 ```
 {
-    "ResizedCdnCname": "${stage}-${name}-resized-images.control-alt-del.org",
-    "SourceBucket": "${stage}-${name}-s",
-    "DestinationBucket": "${stage}-{$name}-r",
-    "DestinationStaticUrl" "${stage}-${name}-r.s3-website-${region}.amazonaws.com",
-    "ImagesCdnCname": "${stage}-${name}-images.control-alt-del.org",
-    "ResizedCdnCname": "${stage}-${name}-rimages.control-alt-del.org",
-    "ResizerCdnCname": "${stage}-${name}-reimage.control-alt-del.org",
+    "ResizedCdnCproject": "${stage}-${project}-resized-images.control-alt-del.org",
+    "SourceBucket": "${stage}-${project}-s",
+    "DestinationBucket": "${stage}-{$project}-r",
+    "DestinationStaticUrl" "${stage}-${project}-r.s3-website-${region}.amazonaws.com",
+    "ImagesCdnCproject": "${stage}-${project}-images.control-alt-del.org",
+    "ResizedCdnCproject": "${stage}-${project}-rimages.control-alt-del.org",
+    "ResizerCdnCproject": "${stage}-${project}-reimage.control-alt-del.org",
     "APIGatewayEntryPoint": "PLACEHOLDER.execute-api.${region}.amazonaws.com"
 }
 ```
@@ -40,13 +40,13 @@ In this case, it would be `fdpz9b88g1`.
 
 ```
 {
-    "ResizedCdnCname": "${stage}-${name}-resized-images.control-alt-del.org",
-    "SourceBucket": "${stage}-${name}-s",
-    "DestinationBucket": "${stage}-{$name}-r",
-    "DestinationStaticUrl" "${stage}-${name}-r.s3-website-${region}.amazonaws.com",
-    "ImagesCdnCname": "${stage}-${name}-images.control-alt-del.org",
-    "ResizedCdnCname": "${stage}-${name}-rimages.control-alt-del.org",
-    "ResizerCdnCname": "${stage}-${name}-reimage.control-alt-del.org",
+    "ResizedCdnCproject": "${stage}-${project}-resized-images.control-alt-del.org",
+    "SourceBucket": "${stage}-${project}-s",
+    "DestinationBucket": "${stage}-{$project}-r",
+    "DestinationStaticUrl" "${stage}-${project}-r.s3-website-${region}.amazonaws.com",
+    "ImagesCdnCproject": "${stage}-${project}-images.control-alt-del.org",
+    "ResizedCdnCproject": "${stage}-${project}-rimages.control-alt-del.org",
+    "ResizerCdnCproject": "${stage}-${project}-reimage.control-alt-del.org",
     "APIGatewayEntryPoint": "fdpz9b88g1.execute-api.${region}.amazonaws.com"
 }
 ```
