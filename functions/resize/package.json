@@ -1,0 +1,18 @@
+{
+  "name": "sls-resizer",
+  "version": "0.0.1",
+  "description": "A serverless image resizing service",
+  "author": "me",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/"
+  },
+  "dependencies": {
+    "async": "^2.0.0-rc.3",
+    "aws-sdk": "^2.3.5",
+    "gm": "^1.22.0",
+    "imagemagick": "^0.1.3"
+  }
+}

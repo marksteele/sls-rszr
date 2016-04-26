@@ -1,0 +1,7 @@
+{
+  "name": "sls-rszr",
+  "custom": {},
+  "plugins": [
+    "serverless-optimizer-plugin"
+  ]
+}

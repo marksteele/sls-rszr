@@ -1,0 +1,15 @@
+{
+  "name": "sls-rszr",
+  "version": "0.0.1",
+  "description": "A Serverless image resizer and its Serverless Plugin dependencies.",
+  "author": "Mark Steele",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/"
+  },
+  "dependencies": {
+    "serverless-optimizer-plugin": "^2.0.0"
+  }
+}

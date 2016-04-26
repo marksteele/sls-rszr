@@ -1,0 +1,47 @@
+{
+  "name": "resize",
+  "runtime": "nodejs4.3",
+  "description": "Serverless resizer",
+  "customName": false,
+  "customRole": false,
+  "handler": "handler.handler",
+  "timeout": 6,
+  "memorySize": 1024,
+  "authorizer": {},
+  "custom": {
+    "excludePatterns": []
+  },
+  "endpoints": [
+    {
+      "path": "resize/{transformation}/{image}",
+      "method": "GET",
+      "type": "AWS",
+      "authorizationType": "none",
+      "authorizerFunction": false,
+      "apiKeyRequired": false,
+      "requestParameters": {},
+      "requestTemplates": {
+        "application/json": "{ \"transformation\": \"$input.params('transformation')\", \"image\": \"$input.params('image')\" }"
+      },
+      "responses": {
+        "default": {
+          "statusCode": "307",
+          "responseParameters": {
+            "method.response.header.Location": "integration.response.body.location"
+          }
+        }
+      }
+    }
+  ],
+  "events": [],
+  "environment": {
+    "SERVERLESS_PROJECT": "${project}",
+    "SERVERLESS_STAGE": "${stage}",
+    "SERVERLESS_REGION": "${region}",
+    "RESIZED_CLOUDFRONT": "${stage}-${project}-$${ResizedCdnCname}"
+  },
+  "vpc": {
+    "securityGroupIds": [],
+    "subnetIds": []
+  }
+}
