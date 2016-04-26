@@ -1,6 +1,6 @@
 {
   "SourceBucket": "${stage}-${project}-s",
-  "DestinationBucket": "${stage}-${project}-r",
+  "DestinationBucket": "${stage}-{$project}-r",
   "DestinationStaticUrl": "${stage}-${project}-r.s3-website-${region}.amazonaws.com",
   "ImagesCdnCname": "${stage}-${project}-images.control-alt-del.org",
   "ResizedCdnCname": "${stage}-${project}-rimages.control-alt-del.org",
